@@ -1,1 +1,3 @@
 graphtsetlinmachine
+numpy
+numba
