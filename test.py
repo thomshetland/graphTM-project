@@ -184,15 +184,27 @@ def build_model(n: int,
                 seed: int = 42):
     if depth is None:
         depth = 2*n - 2
-    tm = MultiClassGraphTsetlinMachine(
-        number_of_clauses=n_clauses,
-        T=T,
-        s=s,
-        depth=depth,
-        random_state=seed,
-        grid=(16*13,1,1),
-        block=(128,1,1)
-    )
+
+    # Some builds call the arg 'number_of_clauses', others 'n_clauses'.
+    # None of them in your env accept 'random_state'.
+    try:
+        tm = MultiClassGraphTsetlinMachine(
+            number_of_clauses=n_clauses,
+            T=T,
+            s=s,
+            depth=depth
+        )
+    except TypeError:
+        tm = MultiClassGraphTsetlinMachine(
+            n_clauses=n_clauses,
+            T=T,
+            s=s,
+            depth=depth
+        )
+
+    # Optional: seed Python/Numpy for reproducibility in data gen
+    random.seed(seed)
+    np.random.seed(seed)
     return tm
 
 # =============================================================================
