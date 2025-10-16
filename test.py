@@ -229,8 +229,40 @@ def train_and_eval(n: int = 10,
 
     tm = build_model(n, n_clauses=n_clauses, s=s, T=T, depth=depth, seed=seed)
 
-    print("Training… (epoch logs will be printed by the library if enabled)")
-    tm.fit(graphs_train, Y_train, epochs=epochs, X_test=graphs_test, Y_test=Y_test)
+    print("Training… (manual loop since fit() has no X_test/Y_test)")
+
+    def eval_acc(model, Xg, Yg):
+        """Robust evaluation across GraphTM variants."""
+        # Try predict -> class ids
+        try:
+            yhat = model.predict(Xg)
+            return (yhat == Yg).mean()
+        except Exception:
+            pass
+        # Try transform -> logits/scores; take argmax
+        try:
+            scores = model.transform(Xg)
+            yhat = np.argmax(scores, axis=1).astype(Yg.dtype)
+            return (yhat == Yg).mean()
+        except Exception:
+            pass
+        # Try evaluate -> returns accuracy directly
+        try:
+            return float(model.evaluate(Xg, Yg))
+        except Exception:
+            pass
+        raise RuntimeError("No predict/transform/evaluate method found on this GraphTM build.")
+
+    best_acc = 0.0
+    for ep in range(epochs):
+        # One-epoch training step
+        tm.fit(graphs_train, Y_train, epochs=1)
+        acc = eval_acc(tm, graphs_test, Y_test)
+        best_acc = max(best_acc, acc)
+        print(f"epoch {ep+1:3d}  test_acc: {acc*100:6.2f}%  best: {best_acc*100:6.2f}%")
+
+    print(f"Final test accuracy: {best_acc*100:.2f}%")
+
 
     # Evaluate
     try:
