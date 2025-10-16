@@ -169,7 +169,7 @@ def generate_dataset(n: int, num_graphs: int, p_fill: float=0.55):
             graphs.add_graph_node_edge(g, f'cell_{r}_{n-1}', 'RIGHT', edge_type)
 
         Y[g] = y
-
+    graphs.signature = ("hex", n, ("is_red","is_blue","is_empty","is_TOP","is_BOTTOM","is_LEFT","is_RIGHT"), "adj_v1")
     return graphs, Y
 
 # =============================================================================
