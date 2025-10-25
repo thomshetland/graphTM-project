@@ -4,7 +4,7 @@ import numpy as np
 import ctypes as ct
 from numpy.ctypeslib import ndpointer
 
-D = 11                    # must match BOARD_DIM used to compile the C lib
+D = 5                    # must match BOARD_DIM used to compile the C lib
 N = D * D
 NG = 5000                 # number of games to generate
 SEED = 12345
