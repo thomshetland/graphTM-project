@@ -3,7 +3,7 @@ import numpy as np
 import math
 
 # === CONFIG ===
-NPZ_FILE = "dataset/hex_11x11_5000.npz"   # change if your file has a different name
+NPZ_FILE = "dataset/hex_5x5_5000.npz"   # change if your file has a different name
 GAME_INDEX = 0                    # which game to print (0 = first one)
 # ===============
 

@@ -7,8 +7,14 @@ import numpy as np
 import numba
 import random
 import argparse
+from sklearn.model_selection import train_test_split
+
+def create_bridge(node1, node2):
+    if node2 not in edges[node1]:
+        edges[node1].append(node2)
 
 if __name__ == "__main__":
+    print("Initializing program")
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", default=250, type=int)
     parser.add_argument("--number-of-clauses", default=20000, type=int)
@@ -23,16 +29,45 @@ if __name__ == "__main__":
     parser.add_argument('--double-hashing', dest='double_hashing', default=False, action='store_true')
     parser.add_argument("--max-included-literals", default=32, type=int)
     args = parser.parse_args()
-
-    dataset = np.load("dataset/hex_11x11_5000.npz")
+    
+    print("Loading dataset...")
+    dataset = np.load("dataset/hex_5x5_5000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
     x_ds = build_boards_from_moves(moves, lengths, offset=0)
 
-    
     print("Final X shape:", x_ds.shape)
-    '''board_size = 5
+
+    print("Pre-processing training and test dataset")
+    # Split 80% train / 20% test
+    X_train, X_test, y_train, y_test = train_test_split(
+        x_ds, y_ds, test_size=0.2, random_state=42
+    )
+
+    print("Creating nodes")
+    edges = {}
+    board_size = 5
+    for i in range(board_size):
+        for j in range(board_size):
+            node = (i, j)
+            edges[node] = []
+
+    print("Creating edges")
+    for i in range(board_size):
+        for j in range(board_size):
+            if 
+
+    print("Creating boarder nodes")
+
+    print("Creating edges on boarders")
+
+
+
+
+
+
+    '''
     number_of_nodes = board_size**2
     number_of_outgoing_edges = 6
     number_of_games = len(x_train)

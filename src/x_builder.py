@@ -1,6 +1,6 @@
 import numpy as np
 
-def build_board_one_plane(moves: np.ndarray,
+def build_boards_from_moves(moves: np.ndarray,
                           lengths: np.ndarray,
                           offset: int = 0,
                           signed: bool = False) -> np.ndarray:

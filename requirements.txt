@@ -2,3 +2,4 @@ graphtsetlinmachine
 numpy
 numba
 pycuda
+scikit-learn
