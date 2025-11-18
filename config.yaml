@@ -1,10 +1,10 @@
 model: 
   epochs: 1000
-  number_of_clauses: 10000
-  T: 16000
-  s: 1.0
+  number_of_clauses: 5000
+  T: 3125
+  s: 1.06
   depth: 2
-  hypervector_bits: 1
+  hypervector_bits: 16
 
 node:
   symbols: ["Player1", "Player2"]

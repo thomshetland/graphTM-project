@@ -56,6 +56,7 @@ def build_symbol_list(board_size):
     for i in range(board_size):
         for j in range(board_size):
             symbols.extend([
+                f"Empty_{i}_{j}",
                 f"Red_{i}_{j}",
                 f"Blue_{i}_{j}",
                 f"connected_{i}_{j}",
@@ -138,6 +139,7 @@ if __name__ == "__main__":
 
     # Map cell values to string tags for node properties
     cell_value_mapping = {
+        0: "Empty",
         1: "Red",   # player1
         2: "Blue",  # player2
     }
@@ -178,7 +180,7 @@ if __name__ == "__main__":
 
     for graph_id in range(train_graph_length):
         graphs_train.set_number_of_graph_nodes(graph_id, board_size ** 2)
-    
+
     graphs_train.prepare_node_configuration()
 
     for graph_id in range(train_graph_length):

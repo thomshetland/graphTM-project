@@ -29,70 +29,99 @@ def boards_to_games_dict(X, board_size):
     return games
 
 def build_hex_adjacency(board_size):
+    """
+    Correct and stable hex adjacency builder with 4 virtual side nodes.
+    Coordinates:
+        left   -> (-2, -1)
+        right  -> (-1, -2)
+        top    -> (-1, -1)
+        bottom -> (-2, -2)
+    Returns:
+        edges[(i,j)] = list of neighbors (both real and virtual)
+        edges[(virtual)] = list of real neighbors
+    """
     edges = {}
+
+    # ------------------------
+    # 1. Initialize board nodes
+    # ------------------------
     for i in range(board_size):
         for j in range(board_size):
-            node = (i, j)
-            edges[node] = []
+            edges[(i, j)] = []
 
-    left_node = (-2, -1)
-    right_node = (-1, -2)
-    top_node = (-1, -1)
-    bottom_node = (-2, -2)
+    # ------------------------
+    # 2. Initialize virtual nodes
+    # ------------------------
+    LEFT   = (-2, -1)
+    RIGHT  = (-1, -2)
+    TOP    = (-1, -1)
+    BOTTOM = (-2, -2)
 
-    edges[left_node] = []
-    edges[right_node] = []
-    edges[top_node] = []
-    edges[bottom_node] = []
+    edges[LEFT] = []
+    edges[RIGHT] = []
+    edges[TOP] = []
+    edges[BOTTOM] = []
 
-    def connectNodes(a, b):
+    # ------------------------
+    # 3. Helper for safe addition
+    # ------------------------
+    def connect(a, b):
         if b not in edges[a]:
             edges[a].append(b)
 
+    # ------------------------
+    # 4. Real hex adjacency
+    # ------------------------
     for i in range(board_size):
         for j in range(board_size):
             node = (i, j)
 
-            if i < board_size - 1:
-                connectNodes(node, (i + 1, j))
-                connectNodes((i + 1, j), node)
+            # (i+1, j)
+            if i + 1 < board_size:
+                connect(node, (i+1, j))
+                connect((i+1, j), node)
 
-                if j > 0:
-                    connectNodes(node, (i + 1, j - 1))
-                    connectNodes((i + 1, j - 1), node)
+            # (i+1, j-1)
+            if i + 1 < board_size and j - 1 >= 0:
+                connect(node, (i+1, j-1))
+                connect((i+1, j-1), node)
 
-            if j < board_size - 1:
-                connectNodes(node, (i, j + 1))
-                connectNodes((i, j + 1), node)
+            # (i, j+1)
+            if j + 1 < board_size:
+                connect(node, (i, j+1))
+                connect((i, j+1), node)
 
-            if i > 0:
-                connectNodes(node, (i - 1, j))
-                connectNodes((i - 1, j), node)
+            # (i-1, j)
+            if i - 1 >= 0:
+                connect(node, (i-1, j))
+                connect((i-1, j), node)
 
-            if j > 0:
-                connectNodes(node, (i, j - 1))
-                connectNodes((i, j - 1), node)
+            # (i, j-1)
+            if j - 1 >= 0:
+                connect(node, (i, j-1))
+                connect((i, j-1), node)
             
-            # Left border
+            # ------------------------
+            # 5. Add virtual node adjacency
+            # ------------------------
             if j == 0:
-                connectNodes(node, left_node)
-                connectNodes(left_node, node)
+                connect(node, LEFT)
+                connect(LEFT, node)
 
-            # Right border
             if j == board_size - 1:
-                connectNodes(node, right_node)
-                connectNodes(right_node, node)
+                connect(node, RIGHT)
+                connect(RIGHT, node)
 
-            # Top border
             if i == 0:
-                connectNodes(node, top_node)
-                connectNodes(top_node, node)
+                connect(node, TOP)
+                connect(TOP, node)
 
-            # Bottom border
             if i == board_size - 1:
-                connectNodes(node, bottom_node)
-                connectNodes(bottom_node, node)
+                connect(node, BOTTOM)
+                connect(BOTTOM, node)
+
     return edges
+
 
 
 def build_symbol_list(board_size):
@@ -104,7 +133,7 @@ def build_symbol_list(board_size):
                 f"Empty_{i}_{j}",
                 f"Player1_{i}_{j}",
                 f"Player2_{i}_{j}",
-                f"connected_{i}_{j}",
+                f"Connected_{i}_{j}",
                 f"c{i+1}_{i}_{j}",
                 f"r{j+1}_{i}_{j}",
             ])
