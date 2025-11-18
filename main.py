@@ -1,7 +1,8 @@
 from GraphTsetlinMachine.graphs import Graphs
 #from GraphTsetlinMachine.tm import MultiClassGraphTsetlinMachine
 
-from src.x_builder import build_boards_from_moves
+from src.utils.x_builder import build_boards_from_moves
+from src.utils.utils import transform_dataset, build_symbol_list, boards_to_games_dict, build_hex_adjacency
 
 import numpy as np
 import numba
@@ -9,27 +10,10 @@ import random
 import argparse
 from sklearn.model_selection import train_test_split
 
-def create_bridge(node1, node2):
-    if node2 not in edges[node1]:
-        edges[node1].append(node2)
+from config import config
 
 if __name__ == "__main__":
-    print("Initializing program")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", default=250, type=int)
-    parser.add_argument("--number-of-clauses", default=20000, type=int)
-    parser.add_argument("--T", default=25000, type=int)
-    parser.add_argument("--s", default=10.0, type=float)
-    parser.add_argument("--number-of-state-bits", default=8, type=int)
-    parser.add_argument("--depth", default=2, type=int)
-    parser.add_argument("--hypervector-size", default=1024, type=int)
-    parser.add_argument("--hypervector-bits", default=2, type=int)
-    parser.add_argument("--message-size", default=256, type=int)
-    parser.add_argument("--message-bits", default=2, type=int)
-    parser.add_argument('--double-hashing', dest='double_hashing', default=False, action='store_true')
-    parser.add_argument("--max-included-literals", default=32, type=int)
-    args = parser.parse_args()
-    
+
     print("Loading dataset...")
     dataset = np.load("dataset/hex_5x5_5000.npz")
     moves = dataset["moves"]
@@ -44,67 +28,92 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(
         x_ds, y_ds, test_size=0.2, random_state=42
     )
+        
+    print(X_train[0])
 
-    print("Creating nodes")
-    edges = {}
-    board_size = 5
-    for i in range(board_size):
-        for j in range(board_size):
-            node = (i, j)
-            edges[node] = []
+    print("Transforming dataset")
+    X_train = transform_dataset(X_train)
+    X_test = transform_dataset(X_test)
+    print(f"Transformed dataset to {X_train[0]}")
+    y_train = y_train.astype(np.uint32)
+    y_test = y_test.astype(np.uint32)
+    train_graph_length = X_train.shape[0]
+    test_graph_length = X_test.shape[0]
+    print(f"THIS IS GRAPH LENGTH {train_graph_length}")    
 
-    print("Creating edges")
-    for i in range(board_size):
-        for j in range(board_size):
-            if 
+    print("Converting board to game disctionaries")
+    train_games = boards_to_games_dict(X_train, config.game.board_size)
+    test_game = boards_to_games_dict(X_test, config.game.board_size)
 
-    print("Creating boarder nodes")
+    print("Creating nodes and edges")
+    edges = build_hex_adjacency(config.game.board_size)
 
-    print("Creating edges on boarders")
+    print("Creating training graphs")
+    print("Creating symbols")
+    symbols = build_symbol_list(config.game.board_size)
 
-
-
-
-
-
-    '''
-    number_of_nodes = board_size**2
-    number_of_outgoing_edges = 6
-    number_of_games = len(x_train)
+    # Adjust hypervector size and bits
+    edge_symbols = config.edge.symbols.copy()
 
     graphs_train = Graphs(
-        number_of_nodes, # sets how many graphs to make
-        symbols = ['A', 'B', 'corner'], # symbols for each feature (XOR has 2 feature)
-        hypervector_size = 32, # how large the hypervector is to store symbols.
-        hypervector_bits = 2, # set how many bits to use to represent symbols
+        train_graph_length,
+        symbols=symbols,
+        hypervector_size=len(symbols),
+        hypervector_bits=config.model.hypervector_bits
     )
-
-    for graph_id in range(number_of_nodes):
-        graphs_train.set_number_of_graph_nodes(graph_id, number_of_nodes)
-
+    
+    for graph_id in range(train_graph_length):
+        graphs_train.set_number_of_graph_nodes(graph_id, (config.game.board_size ** 2) + 4)
+    
+    print("Preparing node configuration")
     graphs_train.prepare_node_configuration()
 
-    tm = MultiClassGraphTsetlinMachine(
-        args.number_of_clauses,
-        args.T,
-        args.s,
-        number_of_state_bits = args.number_of_state_bits,
-        depth=args.depth,
-        message_size=args.message_size,
-        message_bits=args.message_bits,
-        max_included_literals=args.max_included_literals,
-        double_hashing = args.double_hashing
-    )
+    n_board = config.game.board_size**2
+    for graph_id in range(train_graph_length):
+        for i in range(config.game.board_size):
+            for j in range(config.game.board_size):
+                node_id = i * config.game.board_size + j
+                node = (i, j)
 
-    for i in range(args.epochs):
-        start_training = time()
-        tm.fit(graphs_train, Y_train, epochs=1, incremental=True)
-        stop_training = time()
+                degree = len(edges[node])
 
-        start_testing = time()
-        result_test = 100*(tm.predict(graphs_test) == Y_test).mean()
-        stop_testing = time()
+                # Extra edges for sides (self-loops)
+                side_degree = 0
+                if j == 0:
+                    side_degree += 1          # Left Side
+                if j == config.game.board_size - 1:
+                    side_degree += 1          # Right Side
+                if i == 0:
+                    side_degree += 1          # Top Side
+                if i == config.game.board_size - 1:
+                    side_degree += 1          # Bottom Side
 
-        result_train = 100*(tm.predict(graphs_train) == Y_train).mean()
+                graphs_train.add_graph_node(
+                    graph_id,
+                    node_id,
+                    degree + side_degree
+                )
+        # add virtual nodes
+        for i in range(4):
+            node_id = n_board + i
+            graphs_train.add_graph_node(
+                graph_id,
+                node_id,
+                config.game.board_size
+            )
 
-        print("%d %.2f %.2f %.2f %.2f" % (i, result_train, result_test, stop_training-start_training, stop_testing-start_testing))'''
+    print("Preparing edge configuration")
+    graphs_train.prepare_edge_configuration()
+    
+    for graph_id in range(train_graph_length):
+        game = train_games[graph_id]
+        for i in range(config.game.board_size):
+            for j in range(config.game.board_size):
+                node_id = i * config.game.board_size + j
+                node = (i, j)
+                cell_value = game.get(node_id, 0)
+
+                for neighbor in edges[node]:
+                    
+
+    

@@ -5,7 +5,7 @@
 from GraphTsetlinMachine.graphs import Graphs
 # from GraphTsetlinMachine.tm import MultiClassGraphTsetlinMachine  # not needed for preview
 
-from src.x_builder import build_boards_from_moves
+from utils.x_builder import build_boards_from_moves
 
 import numpy as np
 import argparse

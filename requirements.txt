@@ -3,3 +3,7 @@ numpy
 numba
 pycuda
 scikit-learn
+pydantic
+ruamel.yaml
+pydantic
+pandas

@@ -1,245 +1,474 @@
 from GraphTsetlinMachine.graphs import Graphs
 from GraphTsetlinMachine.tm import MultiClassGraphTsetlinMachine
 
-from src.x_builder import build_boards_from_moves
+from src.utils.x_builder import build_boards_from_moves
+from src.utils.utils import transform_dataset
 
 import numpy as np
-import random
-import argparse
 from sklearn.model_selection import train_test_split
 from time import time
 
-
-def create_bridge(edges, node1, node2):
-    """Add an undirected edge between two board coordinates."""
-    if node2 not in edges[node1]:
-        edges[node1].append(node2)
-    if node1 not in edges[node2]:
-        edges[node2].append(node1)
+from config import config  # YAML -> config.model, config.edge, config.vector, config.game
 
 
-def build_hex_edges(board_size):
-    """
-    Build the adjacency list for a hex board of given size.
-
-    Hex neighbors (i,j) have up to 6 neighbors:
-      (i-1, j), (i+1, j),
-      (i, j-1), (i, j+1),
-      (i-1, j+1), (i+1, j-1)
-    """
+def build_hex_adjacency(board_size):
+    """Build undirected Hex adjacency on a board_size x board_size grid."""
     edges = {}
     for i in range(board_size):
         for j in range(board_size):
             node = (i, j)
             edges[node] = []
 
-    # Create edges according to hex neighborhood
+    def connect(a, b):
+        if b not in edges[a]:
+            edges[a].append(b)
+
     for i in range(board_size):
         for j in range(board_size):
             node = (i, j)
-            neighbors = [
-                (i - 1, j),
-                (i + 1, j),
-                (i, j - 1),
-                (i, j + 1),
-                (i - 1, j + 1),
-                (i + 1, j - 1),
-            ]
-            for ni, nj in neighbors:
-                if 0 <= ni < board_size and 0 <= nj < board_size:
-                    create_bridge(edges, node, (ni, nj))
+
+            if i < board_size - 1:
+                connect(node, (i + 1, j))
+                connect((i + 1, j), node)
+
+                if j > 0:
+                    connect(node, (i + 1, j - 1))
+                    connect((i + 1, j - 1), node)
+
+            if j < board_size - 1:
+                connect(node, (i, j + 1))
+                connect((i, j + 1), node)
+
+            if i > 0:
+                connect(node, (i - 1, j))
+                connect((i - 1, j), node)
+
+            if j > 0:
+                connect(node, (i, j - 1))
+                connect((i, j - 1), node)
+
     return edges
 
 
 def build_symbol_list(board_size):
-    """
-    Build the list of symbols (node properties) used in the hypervector
-    representation.
-
-    - 'Empty', 'Player1', 'Player2'  : which stone is on the cell
-    - 'Row_i', 'Col_j'              : where the cell is on the board
-    """
-    symbols = ["Empty", "Player1", "Player2"]
-    symbols.extend([f"Row_{i}" for i in range(board_size)])
-    symbols.extend([f"Col_{j}" for j in range(board_size)])
+    """Our node symbol approach."""
+    symbols = []
+    for i in range(board_size):
+        for j in range(board_size):
+            symbols.extend([
+                f"Red_{i}_{j}",
+                f"Blue_{i}_{j}",
+                f"connected_{i}_{j}",
+                f"c{i+1}_{i}_{j}",
+                f"r{j+1}_{i}_{j}",
+            ])
     return symbols
 
 
-def build_graphs_from_boards(X, edges, symbols, board_size, args):
+def boards_to_games_dict(X, board_size):
     """
-    Convert an array of boards into a Graphs object.
-
-    X: ndarray of shape (n_games, board_size, board_size) or
-       (n_games, board_size * board_size)
-    edges: adjacency dict {(i,j): [(ni,nj), ...]}
-    symbols: list of strings
+    X: array-like (n_samples, board_size, board_size) or (n_samples, board_size*board_size)
+    Returns: list[dict[node_id -> cell_value]]
+    cell_value: 0 (empty), 1 (player1), 2 (player2)
     """
-    n_games = X.shape[0]
-    number_of_nodes = board_size * board_size
-
-    graphs = Graphs(
-        n_games,
-        symbols=symbols,
-        hypervector_size=args.hypervector_size,
-        hypervector_bits=args.hypervector_bits,
-    )
-
-    # Make sure boards are (board_size, board_size)
-    X = X.reshape(n_games, board_size, board_size)
-
-    print("Setting number of nodes for each graph")
-    for graph_id in range(n_games):
-        graphs.set_number_of_graph_nodes(graph_id, number_of_nodes)
-
-    graphs.prepare_node_configuration()
-
-    # Precompute node names and outdegrees
-    node_names = {}
-    node_outdegree = {}
-    for i in range(board_size):
-        for j in range(board_size):
-            node_name = f"cell_{i}_{j}"
-            node_names[(i, j)] = node_name
-            node_outdegree[(i, j)] = len(edges[(i, j)])
-
-    print("Adding nodes to graphs")
-    for graph_id in range(n_games):
-        for i in range(board_size):
-            for j in range(board_size):
-                node_name = node_names[(i, j)]
-                outdeg = node_outdegree[(i, j)]
-                graphs.add_graph_node(graph_id, node_name, outdeg)
-
-    print("Preparing and adding edges")
-    graphs.prepare_edge_configuration()
-    edge_type = "adjacent"
-
-    for graph_id in range(n_games):
-        for i in range(board_size):
-            for j in range(board_size):
-                node_name = node_names[(i, j)]
-                for (ni, nj) in edges[(i, j)]:
-                    neighbor_name = node_names[(ni, nj)]
-                    graphs.add_graph_node_edge(
-                        graph_id, node_name, neighbor_name, edge_type
-                    )
-
-    print("Adding node properties (colors + position)")
-    for graph_id in range(n_games):
-        board = X[graph_id]  # shape (board_size, board_size)
-        for i in range(board_size):
-            for j in range(board_size):
-                node_name = node_names[(i, j)]
-                cell_value = board[i, j]
-
-                # Cell color / player
-                # Adjust these mappings if your x_builder uses different codes
-                if cell_value == 0:
-                    graphs.add_graph_node_property(graph_id, node_name, "Empty")
-                elif cell_value == 1:
-                    graphs.add_graph_node_property(graph_id, node_name, "Player1")
-                elif cell_value == 2:
-                    graphs.add_graph_node_property(graph_id, node_name, "Player2")
-                else:
-                    # Just in case of unexpected values
-                    graphs.add_graph_node_property(graph_id, node_name, "Empty")
-
-                # Positional properties: which row and column this cell is in
-                graphs.add_graph_node_property(graph_id, node_name, f"Row_{i}")
-                graphs.add_graph_node_property(graph_id, node_name, f"Col_{j}")
-
-    print("Encoding graphs (binding + bundling hypervectors)")
-    graphs.encode()
-    return graphs
+    X_arr = np.asarray(X)
+    games = []
+    for board in X_arr:
+        board_flat = board.reshape(-1)
+        game_state = {idx: int(val) for idx, val in enumerate(board_flat)}
+        games.append(game_state)
+    return games
 
 
 if __name__ == "__main__":
-    print("Initializing program")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", default=250, type=int)
-    parser.add_argument("--number-of-clauses", default=20000, type=int)
-    parser.add_argument("--T", default=25000, type=int)
-    parser.add_argument("--s", default=10.0, type=float)
-    parser.add_argument("--number-of-state-bits", default=8, type=int)
-    parser.add_argument("--depth", default=2, type=int)
-    parser.add_argument("--hypervector-size", default=1024, type=int)
-    parser.add_argument("--hypervector-bits", default=2, type=int)
-    parser.add_argument("--message-size", default=256, type=int)
-    parser.add_argument("--message-bits", default=2, type=int)
-    parser.add_argument(
-        "--double-hashing",
-        dest="double_hashing",
-        default=False,
-        action="store_true",
-    )
-    parser.add_argument("--max-included-literals", default=32, type=int)
-    args = parser.parse_args()
 
+    # ------------------------------------------------------------
+    # 1. Load and prepare dataset
+    # ------------------------------------------------------------
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_5x5_5000.npz")
-    moves = dataset["moves"]
-    lengths = dataset["lengths"]
-    y_ds = dataset["winners"].astype(np.uint32)
-
-    # x_ds should be an array of shape (n_games, 5, 5) or (n_games, 25)
+    data = np.load("dataset/hex_5x5_5000.npz")
+    moves = data["moves"]
+    lengths = data["lengths"]
+    y_ds = data["winners"]
     x_ds = build_boards_from_moves(moves, lengths, offset=0)
-    print("Final X shape:", x_ds.shape)
+
+    print("Final X shape (raw):", x_ds.shape)
 
     print("Pre-processing training and test dataset")
     X_train, X_test, y_train, y_test = train_test_split(
         x_ds, y_ds, test_size=0.2, random_state=42
     )
 
-    board_size = 5
-    print("Creating hex edges")
-    edges = build_hex_edges(board_size)
+    print("Example raw board (before transform):")
+    print(X_train[0])
 
-    print("Building symbol list")
-    symbols = build_symbol_list(board_size)
+    print("Transforming dataset")
+    X_train = transform_dataset(X_train)
+    X_test = transform_dataset(X_test)
 
-    print("Building training graphs")
-    graphs_train = build_graphs_from_boards(
-        X_train, edges, symbols, board_size, args
+    # 🔧 FIX: make sure these are numpy arrays so .shape works
+    X_train = np.asarray(X_train)
+    X_test = np.asarray(X_test)
+
+    print("Transformed first board to:")
+    print(X_train[0])
+
+    y_train = y_train.astype(np.uint32)
+    y_test = y_test.astype(np.uint32)
+
+    board_size = config.game.board_size
+    train_graph_length = X_train.shape[0]   # or len(X_train)
+    test_graph_length = X_test.shape[0]
+
+    # ------------------------------------------------------------
+    # 2. Build adjacency
+    # ------------------------------------------------------------
+    print("Creating nodes and edges (adjacency)...")
+    edges = build_hex_adjacency(board_size)
+
+    # ------------------------------------------------------------
+    # 3. Node symbols + edge symbols
+    # ------------------------------------------------------------
+    print("Creating node symbols")
+    node_symbols = build_symbol_list(board_size)
+    print(f"Total node symbols: {len(node_symbols)}")
+
+    print("Using edge symbols from config:", config.edge.symbols)
+    # We assume config.edge.symbols = ["1", "2", "Corner", "Left Side", "Right Side", "Bottom Side", "Top Side"]
+
+    # Map cell values to string tags for node properties
+    cell_value_mapping = {
+        1: "Red",   # player1
+        2: "Blue",  # player2
+    }
+
+    # Edge labels for same-color neighbor connections
+    edge_type_same = {
+        1: "1",  # player1-player1
+        2: "2",  # player2-player2
+    }
+
+    # Default neighbor edge (neutral)
+    edge_type_default = "Corner"
+
+    # Side labels (must match config.edge.symbols)
+    LEFT_SIDE = "Left Side"
+    RIGHT_SIDE = "Right Side"
+    TOP_SIDE = "Top Side"
+    BOTTOM_SIDE = "Bottom Side"
+
+    # ------------------------------------------------------------
+    # 4. Convert boards to dictionaries for easy lookup
+    # ------------------------------------------------------------
+    print("Converting boards to game dictionaries...")
+    train_games = boards_to_games_dict(X_train, board_size)
+    test_games = boards_to_games_dict(X_test, board_size)
+
+    # ------------------------------------------------------------
+    # 5. Create training graphs
+    # ------------------------------------------------------------
+    print("Creating training graphs")
+
+    graphs_train = Graphs(
+        train_graph_length,
+        symbols=node_symbols,
+        hypervector_size=config.vector.hv_size,
+        hypervector_bits=config.vector.hv_bits,
     )
 
-    print("Building test graphs")
-    graphs_test = build_graphs_from_boards(
-        X_test, edges, symbols, board_size, args
+    for graph_id in range(train_graph_length):
+        graphs_train.set_number_of_graph_nodes(graph_id, board_size ** 2)
+    
+    graphs_train.prepare_node_configuration()
+
+    for graph_id in range(train_graph_length):
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                node = (i, j)
+
+                # Base degree = neighbors in the Hex grid
+                degree = len(edges[node])
+
+                # Extra edges for sides (self-loops)
+                side_degree = 0
+                if j == 0:
+                    side_degree += 1          # Left Side
+                if j == board_size - 1:
+                    side_degree += 1          # Right Side
+                if i == 0:
+                    side_degree += 1          # Top Side
+                if i == board_size - 1:
+                    side_degree += 1          # Bottom Side
+
+                graphs_train.add_graph_node(
+                    graph_id,
+                    node_id,
+                    degree + side_degree
+                )
+
+
+    graphs_train.prepare_edge_configuration()
+
+    print("Adding training edges...")
+    for graph_id in range(train_graph_length):
+        game = train_games[graph_id]
+        if graph_id % 500 == 0:
+            print(f"  Adding edges for training graph id: {graph_id}")
+
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                node = (i, j)
+                cell_value = game.get(node_id, 0)
+
+                # 1) Normal neighbor edges with color info
+                for neighbor in edges[node]:
+                    ni, nj = neighbor
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
+
+                    if cell_value == cell_neighbor and cell_value != 0:
+                        edge_label = edge_type_same[cell_value]
+                    else:
+                        edge_label = edge_type_default
+
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, neighbor_id, edge_label
+                    )
+
+                # 2) Side self-loop edges: Left/Right/Top/Bottom
+                #    This encodes that this node touches a particular side of the board.
+                if j == 0:
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, node_id, LEFT_SIDE
+                    )
+                if j == board_size - 1:
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, node_id, RIGHT_SIDE
+                    )
+                if i == 0:
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, node_id, TOP_SIDE
+                    )
+                if i == board_size - 1:
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, node_id, BOTTOM_SIDE
+                    )
+
+    print("Adding training node properties...")
+    for graph_id in range(train_graph_length):
+        game = train_games[graph_id]
+        if graph_id % 500 == 0:
+            print(f"  Adding properties for training graph id: {graph_id}")
+
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                cell_value = game.get(node_id, 0)
+                cell_property = cell_value_mapping[cell_value]
+
+                # Content
+                graphs_train.add_graph_node_property(
+                    graph_id, node_id, f"{cell_property}_{i}_{j}"
+                )
+
+                # Simple connectivity heuristic
+                num_same = 0
+                for neighbor in edges[(i, j)]:
+                    ni, nj = neighbor
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
+                    if cell_neighbor == cell_value and cell_value != 0:
+                        num_same += 1
+
+                if num_same > 1:
+                    graphs_train.add_graph_node_property(
+                        graph_id, node_id, f"connected_{i}_{j}"
+                    )
+
+                # Positional
+                graphs_train.add_graph_node_property(
+                    graph_id, node_id, f"c{i+1}_{i}_{j}"
+                )
+                graphs_train.add_graph_node_property(
+                    graph_id, node_id, f"r{j+1}_{i}_{j}"
+                )
+
+    print("Encoding training graphs...")
+    graphs_train.encode()
+
+    # ------------------------------------------------------------
+    # 6. Create test graphs (reuse encoding)
+    # ------------------------------------------------------------
+    print("Creating test graphs")
+
+    graphs_test = Graphs(
+        test_graph_length,
+        init_with=graphs_train
     )
 
-    print("Initializing MultiClassGraphTsetlinMachine")
+    for graph_id in range(test_graph_length):
+        graphs_test.set_number_of_graph_nodes(graph_id, board_size ** 2)
+
+    graphs_test.prepare_node_configuration()
+
+    for graph_id in range(test_graph_length):
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                node = (i, j)
+
+                degree = len(edges[node])
+
+                side_degree = 0
+                if j == 0:
+                    side_degree += 1
+                if j == board_size - 1:
+                    side_degree += 1
+                if i == 0:
+                    side_degree += 1
+                if i == board_size - 1:
+                    side_degree += 1
+
+                graphs_test.add_graph_node(
+                    graph_id,
+                    node_id,
+                    degree + side_degree
+                )
+
+
+    graphs_test.prepare_edge_configuration()
+
+    print("Adding test edges...")
+    for graph_id in range(test_graph_length):
+        game = test_games[graph_id]
+        if graph_id % 500 == 0:
+            print(f"  Adding edges for test graph id: {graph_id}")
+
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                node = (i, j)
+                cell_value = game.get(node_id, 0)
+
+                # Normal neighbor edges
+                for neighbor in edges[node]:
+                    ni, nj = neighbor
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
+
+                    if cell_value == cell_neighbor and cell_value != 0:
+                        edge_label = edge_type_same[cell_value]
+                    else:
+                        edge_label = edge_type_default
+
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, neighbor_id, edge_label
+                    )
+
+                # Side self-loop edges
+                if j == 0:
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, node_id, LEFT_SIDE
+                    )
+                if j == board_size - 1:
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, node_id, RIGHT_SIDE
+                    )
+                if i == 0:
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, node_id, TOP_SIDE
+                    )
+                if i == board_size - 1:
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, node_id, BOTTOM_SIDE
+                    )
+
+    print("Adding test node properties...")
+    for graph_id in range(test_graph_length):
+        game = test_games[graph_id]
+        if graph_id % 500 == 0:
+            print(f"  Adding properties for test graph id: {graph_id}")
+
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
+                cell_value = game.get(node_id, 0)
+                cell_property = cell_value_mapping[cell_value]
+
+                graphs_test.add_graph_node_property(
+                    graph_id, node_id, f"{cell_property}_{i}_{j}"
+                )
+
+                num_same = 0
+                for neighbor in edges[(i, j)]:
+                    ni, nj = neighbor
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
+                    if cell_neighbor == cell_value and cell_value != 0:
+                        num_same += 1
+
+                if num_same > 1:
+                    graphs_test.add_graph_node_property(
+                        graph_id, node_id, f"connected_{i}_{j}"
+                    )
+
+                graphs_test.add_graph_node_property(
+                    graph_id, node_id, f"c{i+1}_{i}_{j}"
+                )
+                graphs_test.add_graph_node_property(
+                    graph_id, node_id, f"r{j+1}_{i}_{j}"
+                )
+
+    print("Encoding test graphs...")
+    graphs_test.encode()
+
+    # ------------------------------------------------------------
+    # 7. Train MultiClassGraphTsetlinMachine
+    # ------------------------------------------------------------
+    print("Initializing MultiClassGraphTsetlinMachine...")
+
     tm = MultiClassGraphTsetlinMachine(
-        args.number_of_clauses,
-        args.T,
-        args.s,
-        number_of_state_bits=args.number_of_state_bits,
-        depth=args.depth,
-        message_size=args.message_size,
-        message_bits=args.message_bits,
-        max_included_literals=args.max_included_literals,
-        double_hashing=args.double_hashing,
+        config.model.number_of_clauses,
+        config.model.T,
+        config.model.s,
+        depth=config.model.depth,
+        message_size=config.vector.msg_size,
+        message_bits=config.vector.msg_bits,
+        grid=(16 * 13, 1, 1),
+        block=(128, 1, 1),
     )
 
-    print("Starting training")
-    for epoch in range(args.epochs):
+    train_acc = []
+    test_acc = []
+    epoch_list = []
+    epoch = 0
+
+    print("Starting training...")
+    for i in range(config.model.epochs):
+        epoch += 1
         start_training = time()
+
         tm.fit(graphs_train, y_train, epochs=1, incremental=True)
+
         stop_training = time()
 
         start_testing = time()
-        y_pred_test = tm.predict(graphs_test)
+        result_test = 100.0 * (tm.predict(graphs_test) == y_test).mean()
         stop_testing = time()
 
-        test_acc = 100.0 * (y_pred_test == y_test).mean()
-        train_acc = 100.0 * (tm.predict(graphs_train) == y_train).mean()
+        result_train = 100.0 * (tm.predict(graphs_train) == y_train).mean()
+
+        train_acc.append(result_train)
+        test_acc.append(result_test)
+        epoch_list.append(epoch)
 
         print(
-            "%d %.2f %.2f %.2f %.2f"
-            % (
-                epoch,
-                train_acc,
-                test_acc,
-                stop_training - start_training,
-                stop_testing - start_testing,
-            )
+            f"Epoch: {epoch}, "
+            f"Train acc: {result_train:.2f}%, "
+            f"Test acc: {result_test:.2f}%, "
+            f"Epoch time: {stop_testing - start_training:.2f}s"
         )
+
+    print("Training finished.")

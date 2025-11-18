@@ -1,2 +1,4 @@
 # Ignore the entire virtual environment folder
 env/
+venv/
+__pycache__/
