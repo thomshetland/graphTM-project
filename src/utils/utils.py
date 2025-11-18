@@ -73,7 +73,7 @@ def build_hex_adjacency(board_size):
                 connectNodes(node, (i, j - 1))
                 connectNodes((i, j - 1), node)
             
-                        # Left border
+            # Left border
             if j == 0:
                 connectNodes(node, left_node)
                 connectNodes(left_node, node)

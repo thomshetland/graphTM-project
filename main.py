@@ -104,7 +104,10 @@ if __name__ == "__main__":
 
     print("Preparing edge configuration")
     graphs_train.prepare_edge_configuration()
-    
+    edge_type_same = {
+        1: "1",  # player1-player1
+        2: "2",  # player2-player2
+    }
     for graph_id in range(train_graph_length):
         game = train_games[graph_id]
         for i in range(config.game.board_size):
@@ -114,6 +117,51 @@ if __name__ == "__main__":
                 cell_value = game.get(node_id, 0)
 
                 for neighbor in edges[node]:
-                    
+                    ni, nj = neighbor
+                    if ni < 0:
+                        if ni == -2 and nj == -1: # left
+                            neighbor_id = n_board
+                            cell_neighbor = 1
+                        elif ni == -1 and nj == -2: # right
+                            neighbor_id = n_board + 1
+                            cell_neighbor = 1
+                        elif ni == -1 and nj == -1: # top
+                            neighbor_id = n_board + 2 
+                            cell_neighbor = 2
+                        else:                       # bottom
+                            neighbor_id = n_board + 3
+                            cell_neighbor = 2
+                        
+                        if cell_value == cell_neighbor and cell_value != 0:
+                            edge_label = edge_type_same[cell_value]
+                        else:
+                            edge_label = "Plain"
+                        graphs_train.add_graph_node_edge(
+                            graph_id, 
+                            node_id, 
+                            neighbor_id, 
+                            edge_label
+                        )
+                        graphs_train.add_graph_node_edge(
+                            graph_id, 
+                            neighbor_id, 
+                            node_id,
+                            edge_label
+                        )
+                    else:
+                        neighbor_id = ni * config.game.board_size + nj           
+                        cell_neighbor = game.get(neighbor_id, 0)
+                        if cell_value == cell_neighbor and cell_value != 0:
+                            edge_label = edge_type_same[cell_value]
+                        else:
+                            edge_label = "Plain"
 
+                        graphs_train.add_graph_node_edge(
+                            graph_id, 
+                            node_id, 
+                            neighbor_id, 
+                            edge_label
+                        )
+
+    print("Adding training node properties")
     

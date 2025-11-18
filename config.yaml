@@ -10,7 +10,7 @@ node:
   symbols: ["Player1", "Player2"]
 
 edge:
-  symbols: ["1", "2", "Corner"]
+  symbols: ["1", "2", "Plain"]
 
 vector:
   hv_size: 512
