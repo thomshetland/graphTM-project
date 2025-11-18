@@ -33,11 +33,13 @@ if __name__ == "__main__":
     X_train = transform_dataset(X_train)
     X_test = transform_dataset(X_test)
     print(f"Transformed dataset to {X_train[0]}")
+
     y_train = y_train.astype(np.uint32)
     y_test = y_test.astype(np.uint32)
+
     train_graph_length = X_train.shape[0]
     test_graph_length = X_test.shape[0]
-    print(f"THIS IS GRAPH LENGTH {train_graph_length}")    
+      
 
     print("Converting board to game disctionaries")
     train_games = boards_to_games_dict(X_train, config.game.board_size)
@@ -46,7 +48,6 @@ if __name__ == "__main__":
     print("Creating nodes and edges")
     edges = build_hex_adjacency(config.game.board_size)
 
-    print("Creating training graphs")
     print("Creating symbols")
     symbols = build_symbol_list(config.game.board_size)
 
@@ -206,7 +207,11 @@ if __name__ == "__main__":
                     )
                 
     print("Encoding training graphs")
-
+    # Before graphs_train.encode()
+    print(f"Total symbols defined: {len(symbols)}")
+    for graph_id in range(min(5, train_graph_length)):
+        # This would need access to internal graph structure
+        print(f"Graph {graph_id} unique properties: ...")
     graphs_train.encode()
 
     graphs_test = Graphs(
@@ -291,13 +296,13 @@ if __name__ == "__main__":
                         else:
                             edge_label = "Plain"
                             #print("Added plain edge with virtual node")
-                        graphs_train.add_graph_node_edge(
+                        graphs_test.add_graph_node_edge(
                             graph_id, 
                             node_id, 
                             neighbor_id, 
                             edge_label
                         )
-                        graphs_train.add_graph_node_edge(
+                        graphs_test.add_graph_node_edge(
                             graph_id, 
                             neighbor_id, 
                             node_id,
@@ -313,7 +318,7 @@ if __name__ == "__main__":
                             edge_label = "Plain"
                             #print("Added plain edge with real node")
 
-                        graphs_train.add_graph_node_edge(
+                        graphs_test.add_graph_node_edge(
                             graph_id, 
                             node_id, 
                             neighbor_id, 
@@ -327,23 +332,23 @@ if __name__ == "__main__":
         2: "Player2",  # player2
     }
 
-    print("Adding training node properties")
-    for graph_id in range(train_graph_length):
-        game = train_games[graph_id]
+    print("Adding testing node properties")
+    for graph_id in range(test_graph_length):
+        game = test_games[graph_id]
         for i in range(config.game.board_size):
             for j in range(config.game.board_size):
                 node_id = i * config.game.board_size + j
                 cell_value = game.get(node_id, 0)
                 cell_property = cell_value_mapping[cell_value]
 
-                graphs_train.add_graph_node_property(
+                graphs_test.add_graph_node_property(
                     graph_id, node_id, f"{cell_property}_{i}_{j}"
                 )
 
-                graphs_train.add_graph_node_property(
+                graphs_test.add_graph_node_property(
                     graph_id, node_id, f"c{i+1}_{i}_{j}"
                 )
-                graphs_train.add_graph_node_property(
+                graphs_test.add_graph_node_property(
                     graph_id, node_id, f"r{j+1}_{i}_{j}"
                 )
                 num_same = 0
@@ -356,13 +361,18 @@ if __name__ == "__main__":
                         num_same += 1
 
                 if num_same > 0:
-                    graphs_train.add_graph_node_property(
+                    graphs_test.add_graph_node_property(
                         graph_id, node_id, f"Connected_{i}_{j}"
                     )
                 
-    print("Encoding training graphs")
+    print("Encoding testing graphs")
+    # Before graphs_train.encode()
+    print(f"Total symbols defined: {len(symbols)}")
+    for graph_id in range(min(5, test_graph_length)):
+        # This would need access to internal graph structure
+        print(f"TEST Graph {graph_id} unique properties: ...")
+    graphs_test.encode()
 
-    graphs_train.encode()
     tm = MultiClassGraphTsetlinMachine(
         config.model.number_of_clauses,
         config.model.T,
@@ -375,6 +385,7 @@ if __name__ == "__main__":
     )
 
     train_acc = []
+    test_acc = []
     epoch_list = []
     epoch = 0
 
@@ -387,21 +398,21 @@ if __name__ == "__main__":
 
         stop_training = time()
 
-        #start_testing = time()
-        #result_test = 100.0 * (tm.predict(graphs_test) == y_test).mean()
-        #stop_testing = time()
+        start_testing = time()
+        result_test = 100.0 * (tm.predict(graphs_test) == y_test).mean()
+        stop_testing = time()
 
         result_train = 100.0 * (tm.predict(graphs_train) == y_train).mean()
 
         train_acc.append(result_train)
-        #test_acc.append(result_test)
+        test_acc.append(result_test)
         epoch_list.append(epoch)
 
         print(
             f"Epoch: {epoch}, "
             f"Train acc: {result_train:.2f}%, "
-            #f"Test acc: {result_test:.2f}%, "
-            #f"Epoch time: {stop_testing - start_training:.2f}s"
+            f"Test acc: {result_test:.2f}%, "
+            f"Epoch time: {stop_testing - start_training:.2f}s"
         )
 
     print("Training finished.")

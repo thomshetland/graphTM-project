@@ -139,3 +139,26 @@ def build_symbol_list(board_size):
             ])
     return symbols
 
+def test_build_symbol_list(board_size):
+    """Generate only the symbols that will actually be used"""
+    symbols = []
+    
+    # Edge type symbols (these are already in config.edge.symbols)
+    symbols.extend(['Plain', '1', '2'])
+    
+    # Cell state symbols (no position suffix!)
+    symbols.extend(['Empty', 'Player1', 'Player2'])
+    
+    # Position symbols
+    for i in range(board_size):
+        symbols.append(f'col_{i}')
+        symbols.append(f'row_{i}')
+    
+    # Connectivity symbol
+    symbols.append('Connected')
+    
+    # Optional: degree symbols (number of same-color neighbors)
+    for d in range(7):  # 0-6 neighbors on hex board
+        symbols.append(f'Degree_{d}')
+    
+    return symbols
