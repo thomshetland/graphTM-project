@@ -1,0 +1,58 @@
+# graphTM-project
+# graphTM-project
+gcc -O3 -std=c11 -DBOARD_DIM=15 -fPIC -shared hexlib.c -o libhex.so
+
+
+7x7:
+model: 
+  epochs: 1000
+  number_of_clauses: 5000
+  T: 3125
+  s: 1.15
+  depth: 2
+  hypervector_bits: 1
+
+node:
+  symbols: ["Player1", "Player2"]
+
+edge:
+  symbols: ["1", "2", "Plain"]
+
+vector:
+  hv_size: 512
+  hv_bits: 32
+  msg_size: 512
+  msg_bits: 32
+
+game:
+  board_size: 7
+
+
+ALL COMPLETED GAME EVALUATION PARAMETERS
+5X5:
+    epochs = 300
+    clauses = 5000
+    T = 3250
+    s = 1.15
+    depth = 2
+    hv_bits = 1
+    hv_size = 1
+    msg_bits = 32
+    msg_size = 512
+    board_size = 5
+    n_board = board_size ** 2
+
+6X6:
+
+
+7X7:
+
+8X8:
+
+9X9:
+
+10X10:
+
+11X11:
+
+12X12:

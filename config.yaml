@@ -1,24 +1,4 @@
-model: 
-  epochs: 1000
-  number_of_clauses: 5000
-  T: 3125
-  s: 1.06
-  depth: 2
-  hypervector_bits: 16
-
-node:
-  symbols: ["Player1", "Player2"]
-
-edge:
-  symbols: ["1", "2", "Plain"]
-
-vector:
-  hv_size: 512
-  hv_bits: 32
-  msg_size: 512
-  msg_bits: 32
-
 game:
-  board_size: 5
+  board_size: 6
 
 

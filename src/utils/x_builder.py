@@ -1,11 +1,11 @@
 import numpy as np
 
 def build_boards_from_moves(moves: np.ndarray,
-                          lengths: np.ndarray,
-                          offset: int = 0,
-                          signed: bool = False) -> np.ndarray:
+                            lengths: np.ndarray,
+                            offset: int = 0,
+                            signed: bool = False) -> np.ndarray:
     """
-    Convert move lists into a SINGLE plane per game.
+    Convert move lists into a SINGLE 2D board per game.
 
     Parameters
     ----------
@@ -22,8 +22,8 @@ def build_boards_from_moves(moves: np.ndarray,
 
     Returns
     -------
-    X : np.ndarray, shape (n_games, D*D)
-        One plane per game as described above.
+    X : np.ndarray, shape (n_games, D, D)
+        One 2D board per game as described above.
     """
     if moves.ndim != 2:
         raise ValueError(f"`moves` must be 2D, got shape {moves.shape}")
@@ -36,7 +36,7 @@ def build_boards_from_moves(moves: np.ndarray,
         raise ValueError(f"Cannot infer board dimension: N={N} is not a perfect square.")
 
     # dtype: small integer to save RAM
-    X = np.zeros((G, N), dtype=np.int8)
+    X = np.zeros((G, D, D), dtype=np.int8)
 
     for g in range(G):
         L = int(lengths[g]) - offset
@@ -49,11 +49,15 @@ def build_boards_from_moves(moves: np.ndarray,
             if c < 0:
                 break
 
+            # map flat index -> 2D coordinates (row-major)
+            i, j = divmod(c, D)
+
             if signed:
                 # +1 for Player 0, -1 for Player 1
-                X[g, c] = 1 if (t % 2) == 0 else -1
+                X[g, i, j] = 1 if (t % 2) == 0 else -1
             else:
                 # 1 for Player 0, 2 for Player 1 (0 = empty)
-                X[g, c] = 1 if (t % 2) == 0 else 2
+                X[g, i, j] = 1 if (t % 2) == 0 else 2
 
     return X
+
