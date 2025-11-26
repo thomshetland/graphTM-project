@@ -11,7 +11,7 @@ import csv
 
 if __name__ == "__main__":
     # Prepare CSV logging
-    csv_filename = "6x6_performance.csv"
+    csv_filename = "7x7_performance_2_offset.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
@@ -26,15 +26,15 @@ if __name__ == "__main__":
     hv_size = 1
     msg_bits = 32
     msg_size = 512
-    board_size = 6
+    board_size = 8
     n_board = board_size ** 2
 
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_6x6_100000.npz")
+    dataset = np.load("dataset/hex_7x7_100000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
-    x_ds = build_boards_from_moves(moves, lengths, offset=0)
+    x_ds = build_boards_from_moves(moves, lengths, offset=2)
 
     print("Final X shape:", x_ds.shape)
 
