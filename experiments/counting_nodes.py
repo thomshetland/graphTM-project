@@ -8,19 +8,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from time import time
 
-from config import config
-
 
 def build_count_symbols(board_size):
-    """
-    Build symbol list where each symbol encodes only:
-      - total stones for Player 1
-      - total stones for Player 2
-
-    We create symbols:
-      stones_p1_0 ... stones_p1_<board_size**2>
-      stones_p2_0 ... stones_p2_<board_size**2>
-    """
     n_board = board_size ** 2
     symbols = []
 
@@ -33,6 +22,17 @@ def build_count_symbols(board_size):
 
 
 if __name__ == "__main__":
+    epochs = 300
+    clauses = 5000
+    T = 3250
+    s = 1.15
+    depth = 2
+    hv_bits = 1
+    hv_size = 1
+    msg_bits = 32
+    msg_size = 1024
+    board_size = 7
+    n_board = board_size ** 2
 
     print("Loading dataset...")
     dataset = np.load("dataset/hex_15x15_5000.npz")
@@ -64,64 +64,46 @@ if __name__ == "__main__":
     test_graph_length = X_test.shape[0]
 
     print("Converting boards to game dictionaries")
-    train_games = boards_to_games_dict(X_train, config.game.board_size)
-    test_games = boards_to_games_dict(X_test, config.game.board_size)
+    train_games = boards_to_games_dict(X_train, board_size)
+    test_games = boards_to_games_dict(X_test, board_size)
 
     print("Creating adjacency for Hex board")
-    edges = build_hex_adjacency(config.game.board_size)
+    edges = build_hex_adjacency(board_size)
 
-    # ─────────────────────────────────────────────────────────────
-    # SYMBOLS: ONLY GLOBAL STONE COUNTS + EDGE SYMBOLS
-    # ─────────────────────────────────────────────────────────────
     print("Creating symbols based on stone counts only")
-    symbols = build_count_symbols(config.game.board_size)
+    symbols = build_count_symbols(board_size)
 
-    # Add edge symbols (e.g. "Plain", "1", "2", etc.) from config
-    edge_symbols = config.edge.symbols.copy()
+    edge_symbols = ["Plain", "Player 1", "Player 2"]
     symbols.extend(edge_symbols)
     print("Edge symbols:", edge_symbols)
     print("Total symbols:", len(symbols))
 
-    # ─────────────────────────────────────────────────────────────
-    # BUILD TRAINING GRAPHS
-    # ─────────────────────────────────────────────────────────────
     graphs_train = Graphs(
         train_graph_length,
         symbols=symbols,
         hypervector_size=len(symbols),
-        hypervector_bits=config.vector.hv_bits,
+        hypervector_bits=hv_bits,
     )
 
-    n_board = config.game.board_size ** 2
+    n_board = board_size ** 2
 
-    # Number of nodes = all board cells + 4 virtual border nodes
+    # Only real board nodes
     for graph_id in range(train_graph_length):
-        graphs_train.set_number_of_graph_nodes(
-            graph_id, n_board + 4
-        )
+        graphs_train.set_number_of_graph_nodes(graph_id, n_board)
 
     print("Preparing training node configuration")
     graphs_train.prepare_node_configuration()
 
-    # Add board nodes (with degree from hex adjacency) + 4 virtual nodes
+    # Add board nodes (with degree from hex adjacency, excluding virtual neighbors)
     for graph_id in range(train_graph_length):
-        # Real board nodes
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
                 node = (i, j)
-                degree = len(edges[node])
+                valid_neighbors = [nbr for nbr in edges[node] if nbr[0] >= 0]
+                degree = len(valid_neighbors)
 
                 graphs_train.add_graph_node(graph_id, node_id, degree)
-
-        # Virtual side nodes (we keep the same degrees as before)
-        for i in range(4):
-            node_id = n_board + i
-            graphs_train.add_graph_node(
-                graph_id,
-                node_id,
-                config.game.board_size,
-            )
 
     print("Preparing training edge configuration")
     graphs_train.prepare_edge_configuration()
@@ -131,63 +113,35 @@ if __name__ == "__main__":
         2: "2",  # player2-player2
     }
 
-    # Add edges (same as in your original code)
+    # Add edges only between real board nodes
     for graph_id in range(train_graph_length):
         game = train_games[graph_id]
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
                 node = (i, j)
                 cell_value = game.get(node_id, 0)
 
                 for neighbor in edges[node]:
                     ni, nj = neighbor
+
+                    # Skip virtual neighbors
                     if ni < 0:
-                        # Virtual nodes
-                        if ni == -2 and nj == -1:   # left
-                            neighbor_id = n_board
-                            cell_neighbor = 1
-                        elif ni == -1 and nj == -2: # right
-                            neighbor_id = n_board + 1
-                            cell_neighbor = 1
-                        elif ni == -1 and nj == -1: # top
-                            neighbor_id = n_board + 2
-                            cell_neighbor = 2
-                        else:                       # bottom
-                            neighbor_id = n_board + 3
-                            cell_neighbor = 2
+                        continue
 
-                        if cell_value == cell_neighbor and cell_value != 0:
-                            edge_label = edge_type_same[cell_value]
-                        else:
-                            edge_label = "Plain"
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
 
-                        graphs_train.add_graph_node_edge(
-                            graph_id, node_id, neighbor_id, edge_label
-                        )
-                        graphs_train.add_graph_node_edge(
-                            graph_id, neighbor_id, node_id, edge_label
-                        )
-
+                    if cell_value == cell_neighbor and cell_value != 0:
+                        edge_label = edge_type_same[cell_value]
                     else:
-                        # Real neighbor
-                        neighbor_id = ni * config.game.board_size + nj
-                        cell_neighbor = game.get(neighbor_id, 0)
+                        edge_label = "Plain"
 
-                        if cell_value == cell_neighbor and cell_value != 0:
-                            edge_label = edge_type_same[cell_value]
-                        else:
-                            edge_label = "Plain"
+                    graphs_train.add_graph_node_edge(
+                        graph_id, node_id, neighbor_id, edge_label
+                    )
 
-                        graphs_train.add_graph_node_edge(
-                            graph_id, node_id, neighbor_id, edge_label
-                        )
-
-    # ─────────────────────────────────────────────────────────────
-    # TRAINING NODE PROPERTIES: ONLY GLOBAL STONE COUNTS
-    # ─────────────────────────────────────────────────────────────
-    print("Adding training node properties based on stone counts")
-
+    # Add global stone-count properties to each node
     for graph_id in range(train_graph_length):
         game = train_games[graph_id]
 
@@ -199,109 +153,70 @@ if __name__ == "__main__":
         sym_p2 = f"stones_p2_{p2_count}"
 
         # Attach the same global-count symbols to every board node
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
 
-                graphs_train.add_graph_node_property(
-                    graph_id, node_id, sym_p1
-                )
-                graphs_train.add_graph_node_property(
-                    graph_id, node_id, sym_p2
-                )
-        # (We can leave virtual nodes without properties, or give them too if you like.)
+                graphs_train.add_graph_node_property(graph_id, node_id, sym_p1)
+                graphs_train.add_graph_node_property(graph_id, node_id, sym_p2)
 
     print("Encoding training graphs")
     for graph_id in range(min(5, train_graph_length)):
         print(f"Train graph {graph_id}: node properties attached (stone counts only).")
     graphs_train.encode()
 
-    # ─────────────────────────────────────────────────────────────
-    # BUILD TEST GRAPHS (MIRROR THE TRAINING SETUP)
-    # ─────────────────────────────────────────────────────────────
     graphs_test = Graphs(
         test_graph_length,
-        init_with=graphs_train,  # reuse symbol mapping etc.
+        init_with=graphs_train, 
     )
 
     for graph_id in range(test_graph_length):
-        graphs_test.set_number_of_graph_nodes(
-            graph_id, n_board + 4
-        )
+        graphs_test.set_number_of_graph_nodes(graph_id, n_board)
 
     print("Preparing test node configuration")
     graphs_test.prepare_node_configuration()
 
+    # Add only real board nodes for test graphs
     for graph_id in range(test_graph_length):
-        # Board nodes
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
                 node = (i, j)
-                degree = len(edges[node])
+                valid_neighbors = [nbr for nbr in edges[node] if nbr[0] >= 0]
+                degree = len(valid_neighbors)
 
                 graphs_test.add_graph_node(graph_id, node_id, degree)
-
-        # Virtual nodes
-        for i in range(4):
-            node_id = n_board + i
-            graphs_test.add_graph_node(
-                graph_id,
-                node_id,
-                config.game.board_size,
-            )
 
     print("Preparing test edge configuration")
     graphs_test.prepare_edge_configuration()
 
+    # Add edges only between real board nodes for test graphs
     for graph_id in range(test_graph_length):
         game = test_games[graph_id]
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
                 node = (i, j)
                 cell_value = game.get(node_id, 0)
 
                 for neighbor in edges[node]:
                     ni, nj = neighbor
+
+                    # Skip virtual neighbors
                     if ni < 0:
-                        if ni == -2 and nj == -1:   # left
-                            neighbor_id = n_board
-                            cell_neighbor = 1
-                        elif ni == -1 and nj == -2: # right
-                            neighbor_id = n_board + 1
-                            cell_neighbor = 1
-                        elif ni == -1 and nj == -1: # top
-                            neighbor_id = n_board + 2
-                            cell_neighbor = 2
-                        else:                       # bottom
-                            neighbor_id = n_board + 3
-                            cell_neighbor = 2
+                        continue
 
-                        if cell_value == cell_neighbor and cell_value != 0:
-                            edge_label = edge_type_same[cell_value]
-                        else:
-                            edge_label = "Plain"
+                    neighbor_id = ni * board_size + nj
+                    cell_neighbor = game.get(neighbor_id, 0)
 
-                        graphs_test.add_graph_node_edge(
-                            graph_id, node_id, neighbor_id, edge_label
-                        )
-                        graphs_test.add_graph_node_edge(
-                            graph_id, neighbor_id, node_id, edge_label
-                        )
-
+                    if cell_value == cell_neighbor and cell_value != 0:
+                        edge_label = edge_type_same[cell_value]
                     else:
-                        neighbor_id = ni * config.game.board_size + nj
-                        cell_neighbor = game.get(neighbor_id, 0)
+                        edge_label = "Plain"
 
-                        if cell_value == cell_neighbor and cell_value != 0:
-                            edge_label = edge_type_same[cell_value]
-                        else:
-                            edge_label = "Plain"
-
-                        graphs_test.add_graph_node_edge(
-                            graph_id, node_id, neighbor_id, edge_label
-                        )
+                    graphs_test.add_graph_node_edge(
+                        graph_id, node_id, neighbor_id, edge_label
+                    )
 
     print("Adding test node properties based on stone counts")
 
@@ -314,32 +229,25 @@ if __name__ == "__main__":
         sym_p1 = f"stones_p1_{p1_count}"
         sym_p2 = f"stones_p2_{p2_count}"
 
-        for i in range(config.game.board_size):
-            for j in range(config.game.board_size):
-                node_id = i * config.game.board_size + j
+        for i in range(board_size):
+            for j in range(board_size):
+                node_id = i * board_size + j
 
-                graphs_test.add_graph_node_property(
-                    graph_id, node_id, sym_p1
-                )
-                graphs_test.add_graph_node_property(
-                    graph_id, node_id, sym_p2
-                )
+                graphs_test.add_graph_node_property(graph_id, node_id, sym_p1)
+                graphs_test.add_graph_node_property(graph_id, node_id, sym_p2)
 
     print("Encoding test graphs")
     for graph_id in range(min(5, test_graph_length)):
         print(f"Test graph {graph_id}: node properties attached (stone counts only).")
     graphs_test.encode()
 
-    # ─────────────────────────────────────────────────────────────
-    # TRAIN GRAPH TSETLIN MACHINE
-    # ─────────────────────────────────────────────────────────────
     tm = MultiClassGraphTsetlinMachine(
-        config.model.number_of_clauses,
-        config.model.T,
-        config.model.s,
-        depth=config.model.depth,
-        message_size=config.vector.msg_size,
-        message_bits=config.vector.msg_bits,
+        clauses,
+        T,
+        s,
+        depth=depth,
+        message_size=msg_size,
+        message_bits=msg_bits,
         grid=(16 * 13, 1, 1),
         block=(128, 1, 1),
     )
@@ -349,8 +257,8 @@ if __name__ == "__main__":
     epoch_list = []
     epoch = 0
 
-    print("Starting training (stone-count features only)...")
-    for i in range(config.model.epochs):
+    print("Starting training (stone-count features only, no virtual nodes)...")
+    for i in range(epochs):
         epoch += 1
         start_training = time()
 

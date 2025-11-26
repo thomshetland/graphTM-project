@@ -11,26 +11,26 @@ import csv
 
 if __name__ == "__main__":
     # Prepare CSV logging
-    csv_filename = "6x6_performance.csv"
+    csv_filename = "11x11_performance.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
 
 
-    epochs = 300
+    epochs = 700
     clauses = 5000
-    T = 3250
+    T = 3125
     s = 1.15
     depth = 2
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
     msg_size = 512
-    board_size = 6
+    board_size = 11
     n_board = board_size ** 2
 
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_6x6_100000.npz")
+    dataset = np.load("dataset/hex_11x11_100000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     
     print("Creating symbols")
     symbols = build_symbol_list(board_size)
-    edge_symbols = ["Plain", "Player 1", "Player 2", "Boarder"]
+    edge_symbols = ["Plain", "Player 1", "Player 2"]
     symbols.extend(edge_symbols)
     hv_size = len(symbols)
     graphs_train = build_graphs("Train", X=X_train, games=train_games, symbols=symbols, edges=edges, board_size=board_size,hv_size=hv_size, hv_bits=hv_bits)
