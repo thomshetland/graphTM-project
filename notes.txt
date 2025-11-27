@@ -77,3 +77,51 @@ ALL COMPLETED GAME EVALUATION PARAMETERS
 11X11:
 
 12X12:
+    - 12x12_performance_overfitting.csv
+        epochs = 500
+        clauses = 5000
+        T = 3125
+        s = 1.0
+        depth = 2
+        hv_bits = 1
+        hv_size = 1
+        msg_bits = 32
+        msg_size = 4096
+        board_size = 12
+        n_board = board_size ** 2
+    - 12x12_performance_higher_s
+        epochs = 500
+        clauses = 5000
+        T = 3125
+        s = 10.0
+        depth = 2
+        hv_bits = 1
+        hv_size = 1
+        msg_bits = 32
+        msg_size = 4096
+        board_size = 12
+        n_board = board_size ** 2
+        epochs = 500
+    - 12x12_performance_max_msg_size
+        clauses = 5000
+        T = 3125
+        s = 10.0
+        depth = 2
+        hv_bits = 1
+        hv_size = 1
+        msg_bits = 32
+        msg_size = 8192
+        board_size = 12
+        n_board = board_size ** 2
+    - 12x12_performance_higher_s_with_onehot_doublehash:
+        epochs = 500
+        clauses = 5000
+        T = 3125
+        s = 10.0
+        depth = 2
+        hv_bits = 1
+        hv_size = 1
+        msg_bits = 32
+        msg_size = 4096
+        board_size = 12
+        n_board = board_size ** 2

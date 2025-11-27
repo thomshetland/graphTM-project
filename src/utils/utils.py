@@ -100,8 +100,8 @@ def build_symbol_list(board_size):
                 f"Empty",
                 f"Player1",
                 f"Player2",
-                f"Placement_{i}_{j}",
-                f"Connected_{i}_{j}",
+                #f"Placement_{i}_{j}",
+                f"Connected",
                 f"c{i}",
                 f"r{j}",
             ])
@@ -128,7 +128,9 @@ def build_graphs(
             graph_length,
             symbols=symbols,
             hypervector_size=hv_size,
-            hypervector_bits=hv_bits
+            hypervector_bits=hv_bits,
+            double_hashing=True,
+            one_hot_encoding=True
         )
     else:
         graphs = Graphs(
@@ -242,15 +244,15 @@ def build_graphs(
                 )
 
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"c{i}"
+                    graph_id, node_id, f"c{j}"
                 )
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"r{j}"
+                    graph_id, node_id, f"r{i}"
                 )
 
-                graphs.add_graph_node_property(
+                '''graphs.add_graph_node_property(
                     graph_id, node_id, f"Placement_{i}_{j}"
-                )
+                )'''
                 
                 num_same = 0
                 node = (i, j)
@@ -274,7 +276,7 @@ def build_graphs(
                 
                 if num_same > 1:
                     graphs.add_graph_node_property(
-                        graph_id, node_id, f"Connected_{i}_{j}"
+                        graph_id, node_id, f"Connected"
                     )
     graphs.encode()
     return graphs

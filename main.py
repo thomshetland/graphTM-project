@@ -11,26 +11,27 @@ import csv
 
 if __name__ == "__main__":
     # Prepare CSV logging
-    csv_filename = "11x11_performance.csv"
+    '''csv_filename = "6x6_performance_higher_s_with_onehot_doublehash.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
+        writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])'''
 
 
-    epochs = 700
+    epochs = 300
     clauses = 5000
-    T = 3125
-    s = 1.15
+    T = 3250
+    s = 1.0
     depth = 2
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
-    msg_size = 512
-    board_size = 11
+    msg_size = 256
+    board_size = 12
     n_board = board_size ** 2
 
+
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_11x11_100000.npz")
+    dataset = np.load("dataset/hex_12x12_100000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
@@ -81,7 +82,9 @@ if __name__ == "__main__":
         message_size=msg_size,
         message_bits=msg_bits,
         grid=(16*13,1,1),
-        block=(128,1,1)
+        block=(128,1,1),
+        #double_hashing=True,
+        #one_hot_encoding=True
     )
 
     train_acc = []
@@ -121,7 +124,7 @@ if __name__ == "__main__":
             f"Inference time: {inference_time:.2f}s"
         )
 
-        # ---- Append to CSV ----
+        ''' # ---- Append to CSV ----
         with open(csv_filename, mode="a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([epoch, result_train, result_test, training_time, inference_time])
+            writer.writerow([epoch, result_train, result_test, training_time, inference_time])'''
