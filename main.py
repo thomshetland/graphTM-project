@@ -11,30 +11,30 @@ import csv
 
 if __name__ == "__main__":
     # Prepare CSV logging
-    csv_filename = "7x7_performance_2_offset.csv"
+    csv_filename = "12x12_performance.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
 
 
-    epochs = 300
-    clauses = 5000
-    T = 3250
-    s = 1.15
+    epochs = 700
+    clauses = 10000
+    T = 7500
+    s = 1.0
     depth = 2
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
-    msg_size = 512
-    board_size = 8
+    msg_size = 2048
+    board_size = 12
     n_board = board_size ** 2
 
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_7x7_100000.npz")
+    dataset = np.load("dataset/hex_12x12_100000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
-    x_ds = build_boards_from_moves(moves, lengths, offset=2)
+    x_ds = build_boards_from_moves(moves, lengths, offset=0)
 
     print("Final X shape:", x_ds.shape)
 
