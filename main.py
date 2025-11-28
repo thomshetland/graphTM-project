@@ -11,10 +11,10 @@ import csv
 
 if __name__ == "__main__":
     # Prepare CSV logging
-    '''csv_filename = "6x6_performance_higher_s_with_onehot_doublehash.csv"
+    csv_filename = "12x12_performance.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])'''
+        writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
 
 
     epochs = 300
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
-    msg_size = 256
+    msg_size = 512
     board_size = 12
     n_board = board_size ** 2
 
@@ -96,13 +96,11 @@ if __name__ == "__main__":
     for i in range(epochs):
         epoch += 1
 
-        # ---- Training ----
         start_training = time()
         tm.fit(graphs_train, y_train, epochs=1, incremental=True)
         stop_training = time()
         training_time = stop_training - start_training
 
-        # ---- Inference ----
         start_testing = time()
         result_test = 100.0 * (tm.predict(graphs_test) == y_test).mean()
         stop_testing = time()
@@ -110,12 +108,10 @@ if __name__ == "__main__":
 
         result_train = 100.0 * (tm.predict(graphs_train) == y_train).mean()
 
-        # Store values in lists (optional)
         train_acc.append(result_train)
         test_acc.append(result_test)
         epoch_list.append(epoch)
 
-        # Print to console
         print(
             f"Epoch: {epoch}, "
             f"Train acc: {result_train:.2f}%, "
@@ -124,7 +120,7 @@ if __name__ == "__main__":
             f"Inference time: {inference_time:.2f}s"
         )
 
-        ''' # ---- Append to CSV ----
+        # ---- Append to CSV ----
         with open(csv_filename, mode="a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([epoch, result_train, result_test, training_time, inference_time])'''
+            writer.writerow([epoch, result_train, result_test, training_time, inference_time])

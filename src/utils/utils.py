@@ -100,8 +100,8 @@ def build_symbol_list(board_size):
                 f"Empty",
                 f"Player1",
                 f"Player2",
-                #f"Placement_{i}_{j}",
-                f"Connected",
+                f"Placement_{i}_{j}",
+                f"Connected_{i}_{j}",
                 f"c{i}",
                 f"r{j}",
             ])
@@ -244,15 +244,15 @@ def build_graphs(
                 )
 
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"c{j}"
+                    graph_id, node_id, f"c{i}"
                 )
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"r{i}"
+                    graph_id, node_id, f"r{j}"
                 )
 
-                '''graphs.add_graph_node_property(
+                graphs.add_graph_node_property(
                     graph_id, node_id, f"Placement_{i}_{j}"
-                )'''
+                )
                 
                 num_same = 0
                 node = (i, j)
@@ -276,7 +276,7 @@ def build_graphs(
                 
                 if num_same > 1:
                     graphs.add_graph_node_property(
-                        graph_id, node_id, f"Connected"
+                        graph_id, node_id, f"Connected_{i}_{j}"
                     )
     graphs.encode()
     return graphs
