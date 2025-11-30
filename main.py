@@ -10,13 +10,12 @@ from time import time
 import csv
 
 if __name__ == "__main__":
-    # Prepare CSV logging
-    csv_filename = "12x12_performance.csv"
+    '''# Prepare CSV logging
+    csv_filename = "11x11_performance.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
-
-
+'''
     epochs = 300
     clauses = 5000
     T = 3250
@@ -120,7 +119,7 @@ if __name__ == "__main__":
             f"Inference time: {inference_time:.2f}s"
         )
 
-        # ---- Append to CSV ----
+        '''# ---- Append to CSV ----
         with open(csv_filename, mode="a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([epoch, result_train, result_test, training_time, inference_time])
+            writer.writerow([epoch, result_train, result_test, training_time, inference_time])'''

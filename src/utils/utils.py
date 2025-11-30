@@ -17,10 +17,10 @@ def boards_to_games_dict(X, board_size):
     for board in X_arr:
         board_flat = board.reshape(-1)
         game_state = {idx: int(val) for idx, val in enumerate(board_flat)}
-        game_state[num_nodes] = 1
-        game_state[num_nodes + 1] = 1
-        game_state[num_nodes + 2] = 2
-        game_state[num_nodes + 3] = 2
+        game_state[num_nodes] = 2
+        game_state[num_nodes + 1] = 2
+        game_state[num_nodes + 2] = 1
+        game_state[num_nodes + 3] = 1
         games.append(game_state)
     return games
 
@@ -184,16 +184,16 @@ def build_graphs(
                     if ni < 0:
                         if ni == -2 and nj == -1: # left
                             neighbor_id = n_board 
-                            cell_neighbor = 1
+                            cell_neighbor = 2
                         elif ni == -1 and nj == -2: # right
                             neighbor_id = n_board + 1
-                            cell_neighbor = 1
+                            cell_neighbor = 2
                         elif ni == -1 and nj == -1: # top
                             neighbor_id = n_board + 2 
-                            cell_neighbor = 2
+                            cell_neighbor = 1
                         else:                       # bottom
                             neighbor_id = n_board + 3
-                            cell_neighbor = 2
+                            cell_neighbor = 1
                         
                         if cell_value == cell_neighbor and cell_value != 0:
                             edge_label = edge_type_mapping[cell_value]

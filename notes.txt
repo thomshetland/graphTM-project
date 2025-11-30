@@ -79,8 +79,8 @@ ALL COMPLETED GAME EVALUATION PARAMETERS
 12X12:
     - 12x12_performance_overfitting.csv
         epochs = 500
-        clauses = 5000
-        T = 3125
+        clauses = 7000
+        T = 4000
         s = 1.0
         depth = 2
         hv_bits = 1
