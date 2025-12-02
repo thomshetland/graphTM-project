@@ -102,8 +102,8 @@ def build_symbol_list(board_size):
                 f"Player2",
                 f"Placement_{i}_{j}",
                 f"Connected_{i}_{j}",
-                f"c{i}",
-                f"r{j}",
+                f"c{j}",
+                f"r{i}",
             ])
     symbols = list(symbols)
     return symbols
@@ -244,10 +244,10 @@ def build_graphs(
                 )
 
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"c{i}"
+                    graph_id, node_id, f"c{j}"
                 )
                 graphs.add_graph_node_property(
-                    graph_id, node_id, f"r{j}"
+                    graph_id, node_id, f"r{i}"
                 )
 
                 graphs.add_graph_node_property(

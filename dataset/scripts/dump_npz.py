@@ -4,10 +4,10 @@ import numpy as np
 import ctypes as ct
 from numpy.ctypeslib import ndpointer
 
-D = 12         # must match BOARD_DIM used to compile the C lib
+D = 20     # must match BOARD_DIM used to compile the C lib
 N = D * D
-NG = 10000               # number of games to generate
-SEED = 12345
+NG = 80000               # number of games to generate
+SEED = 6969
 
 # Load library (choose the right name per platform)
 libname_candidates = ["./libhex.so", "./libhex.dylib", "./hexlib.dll", "./libhex.dll"]

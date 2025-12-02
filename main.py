@@ -10,27 +10,28 @@ from time import time
 import csv
 
 if __name__ == "__main__":
+    
     '''# Prepare CSV logging
-    csv_filename = "11x11_performance.csv"
+    csv_filename = "16x16_performance.csv"
     with open(csv_filename, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
-'''
-    epochs = 300
+    '''
+    epochs = 1000
     clauses = 5000
-    T = 3250
+    T = 3125
     s = 1.0
-    depth = 2
+    depth = 1
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
-    msg_size = 512
-    board_size = 12
+    msg_size = 256
+    board_size = 9
     n_board = board_size ** 2
 
 
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_12x12_100000.npz")
+    dataset = np.load("dataset/hex_9x9_100000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]
@@ -119,7 +120,8 @@ if __name__ == "__main__":
             f"Inference time: {inference_time:.2f}s"
         )
 
-        '''# ---- Append to CSV ----
+        ''' # ---- Append to CSV ----
         with open(csv_filename, mode="a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([epoch, result_train, result_test, training_time, inference_time])'''
+            writer.writerow([epoch, result_train, result_test, training_time, inference_time])
+        '''
