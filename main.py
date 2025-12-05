@@ -17,21 +17,21 @@ if __name__ == "__main__":
         writer = csv.writer(f)
         writer.writerow(["epoch", "train_accuracy", "test_accuracy", "training_time", "inference_time"])
     '''
-    epochs = 1000
-    clauses = 5000
-    T = 3125
-    s = 1.0
-    depth = 1
+    epochs = 10000
+    clauses = 30000
+    T = 25000
+    s = 2.0
+    depth = 2
     hv_bits = 1
     hv_size = 1
     msg_bits = 32
     msg_size = 256
-    board_size = 9
+    board_size = 10
     n_board = board_size ** 2
 
 
     print("Loading dataset...")
-    dataset = np.load("dataset/hex_9x9_100000.npz")
+    dataset = np.load("dataset/hex_25x25_7000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
     y_ds = dataset["winners"]

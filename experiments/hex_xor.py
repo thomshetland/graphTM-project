@@ -52,34 +52,26 @@ def add_parity_properties_for_board(graphs, graph_id, board):
 
 
 if __name__ == "__main__":
-    # ---------------------------------------------------------
-    # 0) Config
-    # ---------------------------------------------------------
-    csv_filename = "hex_parity_features_predict_real_winner.csv"
-
     epochs = 300
     clauses = 5000
     T = 3125
     s = 1.0
     depth = 2
 
-    hv_bits = 2
-    hv_size = 32  # small hypervector size is enough for 4 symbols
+    hv_bits = 1
+    hv_size = 32 
 
     msg_bits = 32
     msg_size = 64
 
     board_size = 40
-    offset = 5   # 0 = final board; you can change to >0 to look earlier states
+    offset = 5  
 
-    # ---------------------------------------------------------
-    # 1) Load dataset & build boards
-    # ---------------------------------------------------------
     print("Loading dataset...")
     dataset = np.load("dataset/hex_40x40_10000.npz")
     moves = dataset["moves"]
     lengths = dataset["lengths"]
-    winners = dataset["winners"]  # REAL winner labels
+    winners = dataset["winners"]  
 
     print(f"Building boards from moves with offset={offset}...")
     x_ds = build_boards_from_moves(moves, lengths, offset=offset)
@@ -91,30 +83,20 @@ if __name__ == "__main__":
     )
 
     print("Transforming dataset (if needed)")
-    X_train = transform_dataset(X_train_raw)  # (N, board_size, board_size)
+    X_train = transform_dataset(X_train_raw)  
     X_test = transform_dataset(X_test_raw)
     print(f"Example transformed board:\n{X_train[0]}")
 
-    # Depending on your TM implementation, you may need labels 0/1, not 1/2:
-    # y_train = (y_train - 1).astype(np.uint32)
-    # y_test = (y_test - 1).astype(np.uint32)
-    # For now, keep them as they are:
     y_train = y_train.astype(np.uint32)
     y_test = y_test.astype(np.uint32)
 
     train_graph_length = X_train.shape[0]
     test_graph_length = X_test.shape[0]
 
-    # ---------------------------------------------------------
-    # 2) Symbols: just parity indicators for each player
-    # ---------------------------------------------------------
     print("Creating parity symbols")
     symbols = build_parity_symbols()
     print("Symbols:", symbols)
 
-    # ---------------------------------------------------------
-    # 3) Build training graphs: 2 nodes (P1, P2), parity features only
-    # ---------------------------------------------------------
     graphs_train = Graphs(
         train_graph_length,
         symbols=symbols,
@@ -122,7 +104,6 @@ if __name__ == "__main__":
         hypervector_bits=hv_bits,
     )
 
-    # Each training graph has exactly 2 nodes
     for gid in range(train_graph_length):
         graphs_train.set_number_of_graph_nodes(gid, 2)
 
@@ -130,19 +111,16 @@ if __name__ == "__main__":
     graphs_train.prepare_node_configuration()
 
     for gid in range(train_graph_length):
-        # One outgoing edge from each node (like the XOR example)
         graphs_train.add_graph_node(gid, "P1", 1)
         graphs_train.add_graph_node(gid, "P2", 1)
 
     print("Preparing training edge configuration")
     graphs_train.prepare_edge_configuration()
 
-    # Add symmetric Plain edges between P1 and P2
     for gid in range(train_graph_length):
         graphs_train.add_graph_node_edge(gid, "P1", "P2", "Plain")
         graphs_train.add_graph_node_edge(gid, "P2", "P1", "Plain")
 
-    # Attach parity properties based on each board
     print("Adding parity properties to training graphs")
     for gid in range(train_graph_length):
         board = X_train[gid]  # (board_size, board_size)
@@ -151,9 +129,6 @@ if __name__ == "__main__":
     print("Encoding training graphs")
     graphs_train.encode()
 
-    # ---------------------------------------------------------
-    # 4) Build test graphs the same way
-    # ---------------------------------------------------------
     graphs_test = Graphs(
         test_graph_length,
         init_with=graphs_train,
@@ -184,9 +159,6 @@ if __name__ == "__main__":
     print("Encoding test graphs")
     graphs_test.encode()
 
-    # ---------------------------------------------------------
-    # 5) Tsetlin Machine and training loop
-    # ---------------------------------------------------------
     tm = MultiClassGraphTsetlinMachine(
         clauses,
         T,
@@ -197,12 +169,6 @@ if __name__ == "__main__":
         grid=(16 * 13, 1, 1),
         block=(128, 1, 1),
     )
-
-    # CSV logging
-    with open(csv_filename, mode="w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["epoch", "train_accuracy", "test_accuracy",
-                         "training_time", "inference_time"])
 
     print("Starting training (parity-only features, real winners as labels)...")
     for epoch in range(1, epochs + 1):
@@ -226,10 +192,5 @@ if __name__ == "__main__":
             f"Training time: {training_time:.2f}s, "
             f"Inference time: {inference_time:.2f}s"
         )
-
-        with open(csv_filename, mode="a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([epoch, train_acc, test_acc,
-                             training_time, inference_time])
 
     print("Training finished.")
