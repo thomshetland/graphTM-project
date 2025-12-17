@@ -40,7 +40,6 @@ if __name__ == "__main__":
     print("Final X shape:", x_ds.shape)
 
     print("Pre-processing training and test dataset")
-    # Split 80% train / 20% test
     X_train, X_test, y_train, y_test = train_test_split(
         x_ds, y_ds, test_size=0.2, random_state=42
     )

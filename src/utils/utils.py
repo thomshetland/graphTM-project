@@ -92,7 +92,7 @@ def build_hex_adjacency(board_size):
     return edges
 
 def build_symbol_list(board_size):
-    """Our node symbol approach."""
+    # as stated in the paper, the model would probably benefit from more general symbols
     symbols = set()
     for i in range(board_size):
         for j in range(board_size):
